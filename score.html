@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JEE Response Sheet & Score Parser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8fafc;
+        }
+        .hide { display: none !important; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Header & Upload Section -->
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 text-center">
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-900 mb-2">JEE Score Calculator</h1>
+            <p class="text-slate-500 mb-6">Upload your HTML sheet and paste the answer key JSON to calculate your score.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
+                <!-- Step 1: Response Sheet -->
+                <div>
+                    <h3 class="font-bold text-slate-700 mb-3 text-center md:text-left">Step 1: Upload Response Sheet</h3>
+                    <label for="fileInput" class="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                            <svg class="w-8 h-8 mb-3 text-slate-400" fill="none" viewBox="0 0 20 16" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                            </svg>
+                            <p class="text-sm text-slate-500"><span class="font-semibold">Click to upload</span> HTML</p>
+                        </div>
+                        <input id="fileInput" type="file" class="hidden" accept=".html" />
+                    </label>
+
+                    <div class="my-4 flex items-center justify-center w-full">
+                        <div class="border-t border-slate-200 flex-grow"></div>
+                        <span class="mx-4 text-xs text-slate-400 font-semibold uppercase tracking-wider">OR FETCH URL</span>
+                        <div class="border-t border-slate-200 flex-grow"></div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <input type="url" id="urlInput" placeholder="Paste digialm.com URL..." class="flex-grow px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                        <button id="fetchUrlBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-70">Fetch</button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Answer Key -->
+                <div>
+                    <h3 class="font-bold text-slate-700 mb-3 text-center md:text-left">Step 2: Paste Answer Key (JSON)</h3>
+                    <textarea id="answerKeyInput" class="w-full h-32 p-3 border border-slate-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 bg-slate-50" placeholder='{&#10;  "860654978": "8606543325",&#10;  "8606541048": "56"&#10;}'></textarea>
+                    <button id="calculateBtn" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-medium transition disabled:opacity-70 shadow-sm">
+                        Calculate Score
+                    </button>
+                </div>
+            </div>
+
+            <div id="errorMsg" class="text-red-500 text-sm mt-4 font-medium hide"></div>
+        </div>
+
+        <!-- Results Section (Hidden initially) -->
+        <div id="resultsSection" class="hide space-y-6">
+            
+            <!-- Candidate Info -->
+            <div class="flex flex-wrap gap-4 justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <div><span class="text-xs text-slate-400 uppercase font-semibold block">Name</span><span id="outName" class="font-bold text-slate-800">--</span></div>
+                <div><span class="text-xs text-slate-400 uppercase font-semibold block">App No.</span><span id="outAppNo" class="font-bold text-slate-800">--</span></div>
+                <div><span class="text-xs text-slate-400 uppercase font-semibold block">Date</span><span id="outDate" class="font-bold text-slate-800">--</span></div>
+                <div><span class="text-xs text-slate-400 uppercase font-semibold block">Shift</span><span id="outShift" class="font-bold text-blue-600">--</span></div>
+            </div>
+
+            <!-- Score Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-blue-50 p-5 rounded-xl shadow-sm border border-blue-100 text-center">
+                    <div class="text-sm font-bold text-blue-800 mb-1">TOTAL SCORE</div>
+                    <div id="statScore" class="text-4xl font-black text-blue-600">--</div>
+                </div>
+                <div class="bg-emerald-50 p-5 rounded-xl shadow-sm border border-emerald-100 text-center">
+                    <div class="text-sm font-bold text-emerald-800 mb-1">CORRECT (+4)</div>
+                    <div id="statCorrect" class="text-3xl font-black text-emerald-600">--</div>
+                </div>
+                <div class="bg-red-50 p-5 rounded-xl shadow-sm border border-red-100 text-center">
+                    <div class="text-sm font-bold text-red-800 mb-1">INCORRECT (-1)</div>
+                    <div id="statIncorrect" class="text-3xl font-black text-red-600">--</div>
+                </div>
+                <div class="bg-slate-50 p-5 rounded-xl shadow-sm border border-slate-200 text-center">
+                    <div class="text-sm font-bold text-slate-600 mb-1">UNATTEMPTED</div>
+                    <div id="statUnattempted" class="text-3xl font-black text-slate-500">--</div>
+                </div>
+            </div>
+
+            <!-- Responses Table -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                    <h2 class="text-lg font-bold text-slate-800">Detailed Evaluation</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 text-sm border-b border-slate-200">
+                                <th class="p-3 font-semibold">Q.No</th>
+                                <th class="p-3 font-semibold">Question ID</th>
+                                <th class="p-3 font-semibold">Your Answer</th>
+                                <th class="p-3 font-semibold">Official Key</th>
+                                <th class="p-3 font-semibold">Evaluation</th>
+                                <th class="p-3 font-semibold">Marks</th>
+                            </tr>
+                        </thead>
+                        <tbody id="responseTableBody" class="divide-y divide-slate-100 text-sm">
+                            <!-- Rows will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let parsedData = null;
+        let htmlLoaded = false;
+
+        function showError(msg) {
+            const err = document.getElementById('errorMsg');
+            err.textContent = msg;
+            err.classList.remove('hide');
+        }
+
+        function hideError() {
+            document.getElementById('errorMsg').classList.add('hide');
+        }
+
+        // 1. Handle File Upload
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.name.toLowerCase().endsWith('.html')) return showError("Please upload a valid HTML file.");
+            
+            hideError();
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    parseResponseSheet(evt.target.result);
+                } catch (err) {
+                    showError("Failed to parse file. Ensure it is a valid NTA JEE response sheet.");
+                    console.error(err);
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // 2. Handle URL Fetch
+        document.getElementById('fetchUrlBtn').addEventListener('click', async function() {
+            const urlInput = document.getElementById('urlInput').value.trim();
+            const btn = this;
+            if (!urlInput) return showError("Please enter a valid URL.");
+
+            hideError();
+            const originalText = btn.textContent;
+            btn.textContent = "Fetching...";
+            btn.disabled = true;
+
+            const proxies = [
+                `https://corsproxy.io/?${encodeURIComponent(urlInput)}`,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(urlInput)}`,
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(urlInput)}`
+            ];
+
+            let htmlContent = null;
+            try {
+                for (const proxyUrl of proxies) {
+                    try {
+                        const response = await fetch(proxyUrl);
+                        if (response.ok) {
+                            const text = await response.text();
+                            if (text && text.includes('main-info-pnl')) {
+                                htmlContent = text; break;
+                            }
+                        }
+                    } catch (e) { console.warn(`Proxy failed: ${proxyUrl}`); }
+                }
+
+                if (!htmlContent) throw new Error('Failed to fetch valid content from all proxies.');
+                parseResponseSheet(htmlContent);
+            } catch (err) {
+                showError("Failed to fetch URL. Try downloading the HTML manually and uploading.");
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        });
+
+        // 3. Core Parser Logic
+        function parseResponseSheet(htmlString) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlString, 'text/html');
+
+            let candidateInfo = {};
+            const infoTable = doc.querySelector('.main-info-pnl table');
+            if (infoTable) {
+                infoTable.querySelectorAll('tr').forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length === 2) candidateInfo[cells[0].innerText.trim()] = cells[1].innerText.trim();
+                });
+            }
+
+            let shift = "Unknown";
+            const timeStr = candidateInfo['Test Time'] || "";
+            if (timeStr.includes("9:00 AM") || timeStr.includes("09:00 AM")) shift = "Shift 1 (Morning)";
+            else if (timeStr.includes("3:00 PM") || timeStr.includes("03:00 PM")) shift = "Shift 2 (Evening)";
+
+            let questions = [];
+            doc.querySelectorAll('.question-pnl').forEach((panel, index) => {
+                const menuTable = panel.querySelector('.menu-tbl');
+                if (!menuTable) return;
+
+                let qData = { qNo: index + 1, type: '', questionId: '', status: '', answer: '--', optionIDs: {} };
+
+                menuTable.querySelectorAll('tr').forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length === 2) {
+                        const key = cells[0].innerText.replace(':', '').trim();
+                        const val = cells[1].innerText.trim();
+
+                        if (key === 'Question Type') qData.type = val;
+                        if (key === 'Question ID') qData.questionId = val;
+                        if (key === 'Status') qData.status = val;
+                        if (key === 'Chosen Option' && val !== '--') qData.answer = val;
+                        if (key === 'Given Answer' && val !== '--') qData.answer = val;
+                        if (key.startsWith('Option ') && key.endsWith(' ID')) {
+                            const optNum = key.replace('Option ', '').replace(' ID', '');
+                            qData.optionIDs[optNum] = val;
+                        }
+                    }
+                });
+
+                // Derive the submitted ID/Value for easier comparison
+                qData.submittedValue = qData.answer;
+                if (qData.type === 'MCQ' && qData.answer !== '--') {
+                    qData.submittedValue = qData.optionIDs[qData.answer] || '--';
+                }
+
+                questions.push(qData);
+            });
+
+            parsedData = { candidate: candidateInfo, shift: shift, responses: questions };
+            htmlLoaded = true;
+            
+            document.getElementById('outName').textContent = candidateInfo['Candidate Name'] || 'N/A';
+            document.getElementById('outAppNo').textContent = candidateInfo['Application No'] || 'N/A';
+            document.getElementById('outDate').textContent = candidateInfo['Test Date'] || 'N/A';
+            document.getElementById('outShift').textContent = shift;
+            
+            document.getElementById('resultsSection').classList.remove('hide');
+            renderTable(questions, null); // Render without scores first
+            document.getElementById('calculateBtn').textContent = "Calculate Score (Ready!)";
+        }
+
+        // 4. Score Calculation logic
+        document.getElementById('calculateBtn').addEventListener('click', function() {
+            if (!htmlLoaded) return showError("Please upload or fetch the response sheet HTML first.");
+            hideError();
+
+            const keyText = document.getElementById('answerKeyInput').value.trim();
+            let answerKey = {};
+            
+            if (keyText) {
+                try {
+                    answerKey = JSON.parse(keyText);
+                } catch (e) {
+                    return showError("Invalid Answer Key JSON. Please ensure it's a valid JSON format.");
+                }
+            }
+
+            let correct = 0, incorrect = 0, unattempted = 0, score = 0;
+
+            parsedData.responses.forEach(q => {
+                const officialAns = answerKey[q.questionId];
+                q.officialAnswer = officialAns || 'N/A';
+
+                if (q.status.includes('Answered') && q.status !== 'Not Answered') {
+                    if (officialAns && q.submittedValue === officialAns) {
+                        q.eval = 'Correct';
+                        q.marks = 4;
+                        correct++;
+                        score += 4;
+                    } else if (officialAns) {
+                        q.eval = 'Incorrect';
+                        q.marks = -1;
+                        incorrect++;
+                        score -= 1;
+                    } else {
+                        q.eval = 'Unknown (Missing Key)';
+                        q.marks = 0;
+                    }
+                } else {
+                    q.eval = 'Unattempted';
+                    q.marks = 0;
+                    unattempted++;
+                }
+            });
+
+            // Update stats
+            document.getElementById('statScore').textContent = score;
+            document.getElementById('statCorrect').textContent = correct;
+            document.getElementById('statIncorrect').textContent = incorrect;
+            document.getElementById('statUnattempted').textContent = unattempted;
+
+            renderTable(parsedData.responses, answerKey);
+        });
+
+        // 5. Render Table
+        function renderTable(responses, answerKeyLoaded) {
+            const tbody = document.getElementById('responseTableBody');
+            tbody.innerHTML = '';
+
+            responses.forEach(q => {
+                const isAns = q.status.includes('Answered') && q.status !== 'Not Answered';
+                let rowBg = "hover:bg-slate-50", evalColor = "text-slate-500", marksBadge = "";
+
+                if (answerKeyLoaded && q.officialAnswer !== 'N/A') {
+                    if (q.eval === 'Correct') { rowBg = "bg-emerald-50/50 hover:bg-emerald-50"; evalColor = "text-emerald-600 font-bold"; marksBadge = "+4"; }
+                    else if (q.eval === 'Incorrect') { rowBg = "bg-red-50/50 hover:bg-red-50"; evalColor = "text-red-600 font-bold"; marksBadge = "-1"; }
+                    else { evalColor = "text-slate-400"; marksBadge = "0"; }
+                } else if (!isAns) {
+                    evalColor = "text-slate-400"; marksBadge = "0";
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = `${rowBg} transition`;
+                tr.innerHTML = `
+                    <td class="p-3 border-b border-slate-200 font-medium">${q.qNo}</td>
+                    <td class="p-3 border-b border-slate-200">
+                        <span class="block font-mono text-slate-700">${q.questionId}</span>
+                        <span class="px-2 py-0.5 bg-slate-200 text-slate-600 rounded text-[10px] font-medium">${q.type}</span>
+                    </td>
+                    <td class="p-3 border-b border-slate-200 font-bold text-slate-800">
+                        ${isAns ? `<span class="block text-xs font-normal text-slate-500 mb-1">Opt/Val: ${q.answer}</span>` : ''}
+                        <span class="break-all">${isAns ? q.submittedValue : '<span class="text-slate-400 font-normal">--</span>'}</span>
+                    </td>
+                    <td class="p-3 border-b border-slate-200 font-mono text-slate-700 break-all">
+                        ${q.officialAnswer || '--'}
+                    </td>
+                    <td class="p-3 border-b border-slate-200 ${evalColor}">
+                        ${q.eval || (isAns ? 'Evaluating...' : 'Unattempted')}
+                    </td>
+                    <td class="p-3 border-b border-slate-200 font-bold ${q.marks > 0 ? 'text-emerald-600' : q.marks < 0 ? 'text-red-600' : 'text-slate-400'}">
+                        ${marksBadge || '--'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>
